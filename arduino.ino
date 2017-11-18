@@ -59,29 +59,29 @@ void configureSensor(void)
   //tsl.setTiming(TSL2591_INTEGRATIONTIME_600MS);  // longest integration time (dim light)
 
   /* Display the gain and integration time for reference sake */  
-  Serial.println("------------------------------------");
-  Serial.print  ("Gain:         ");
+  //Serial.println("------------------------------------");
+  //Serial.print  ("Gain:         ");
   tsl2591Gain_t gain = tsl.getGain();
   switch(gain)
   {
     case TSL2591_GAIN_LOW:
-      Serial.println("1x (Low)");
+      //Serial.println("1x (Low)");
       break;
     case TSL2591_GAIN_MED:
-      Serial.println("25x (Medium)");
+      //Serial.println("25x (Medium)");
       break;
     case TSL2591_GAIN_HIGH:
-      Serial.println("428x (High)");
+      //Serial.println("428x (High)");
       break;
     case TSL2591_GAIN_MAX:
-      Serial.println("9876x (Max)");
+      //Serial.println("9876x (Max)");
       break;
   }
-  Serial.print  ("Timing:       ");
-  Serial.print((tsl.getTiming() + 1) * 100, DEC); 
-  Serial.println(" ms");
-  Serial.println("------------------------------------");
-  Serial.println("");
+  //Serial.print  ("Timing:       ");
+  //Serial.print((tsl.getTiming() + 1) * 100, DEC); 
+  //Serial.println(" ms");
+  //Serial.println("------------------------------------");
+  //Serial.println("");
 }
 
 /**************************************************************************/
@@ -93,20 +93,20 @@ void setup(void)
 {
   Serial.begin(9600);
   
-  Serial.println("Starting Adafruit TSL2591 Test!");
+  //Serial.println("Starting Adafruit TSL2591 Test!");
   
   if (tsl.begin()) 
   {
-    Serial.println("Found a TSL2591 sensor");
+    //Serial.println("Found a TSL2591 sensor");
   } 
   else 
   {
-    Serial.println("No sensor found ... check your wiring?");
+    //Serial.println("No sensor found ... check your wiring?");
     while (1);
   }
     
   /* Display some basic information on this sensor */
-  displaySensorDetails();
+  //displaySensorDetails();
   
   /* Configure the sensor */
   configureSensor();
