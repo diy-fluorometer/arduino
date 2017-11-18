@@ -224,9 +224,12 @@ void loop(void)
   int incomingByte = 0;   // for incoming serial data
   // send data only when you receive data:
   if (Serial.available() > 0) {
-    Serial.println(myUnifiedSensorAPIRead());
     // read the incoming byte:
     incomingByte = Serial.read();
+
+    Serial.print(myUnifiedSensorAPIRead());
   }
+
+  delay(1000);
 }
 
