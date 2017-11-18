@@ -111,7 +111,8 @@ void setup(void)
   /* Configure the sensor */
   configureSensor();
     
-  // Now we're ready to get readings ... move on to loop()!
+  // initialize digital pin LED_BUILTIN as an output.
+  pinMode(LED_BUILTIN, OUTPUT);
 }
 
 /**************************************************************************/
@@ -195,4 +196,7 @@ void loop(void)
   unifiedSensorAPIRead();
   
   delay(250);
+
+  digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
 }
+
