@@ -221,15 +221,8 @@ void loop(void)
 
   digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
 
-  int incomingByte = 0;   // for incoming serial data
-  // send data only when you receive data:
-  if (Serial.available() > 0) {
-    // read the incoming byte:
-    incomingByte = Serial.read();
+  Serial.print(myUnifiedSensorAPIRead());
 
-    Serial.print(myUnifiedSensorAPIRead());
-  }
-
-  delay(1000);
+  delay(250);
 }
 
