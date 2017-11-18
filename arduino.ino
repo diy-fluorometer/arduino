@@ -183,6 +183,28 @@ void unifiedSensorAPIRead(void)
   }
 }
 
+int myUnifiedSensorAPIRead(void)
+{
+  /* Get a new sensor event */ 
+  sensors_event_t event;
+  tsl.getEvent(&event);
+ 
+  if ((event.light == 0) |
+      (event.light > 4294966000.0) | 
+      (event.light <-4294966000.0))
+  {
+    /* If event.light = 0 lux the sensor is probably saturated */
+    /* and no reliable data could be generated! */
+    /* if event.light is +/- 4294967040 there was a float over/underflow */
+    return -1;
+  }
+  else
+  {
+    return (int)event.light;
+  }
+}
+
+
 /**************************************************************************/
 /*
     Arduino loop function, called once 'setup' is complete (your own code
@@ -193,10 +215,18 @@ void loop(void)
 { 
   // simpleRead(); 
   // advancedRead();
-  unifiedSensorAPIRead();
+  //unifiedSensorAPIRead();
   
-  delay(250);
+  //delay(2000);
 
   digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
+
+  int incomingByte = 0;   // for incoming serial data
+  // send data only when you receive data:
+  if (Serial.available() > 0) {
+    Serial.println(myUnifiedSensorAPIRead());
+    // read the incoming byte:
+    incomingByte = Serial.read();
+  }
 }
 
