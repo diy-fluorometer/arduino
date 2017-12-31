@@ -6,14 +6,15 @@
 #include <Adafruit_Sensor.h>
 #include "Adafruit_TSL2591.h"
 
-// Example for demonstrating the TSL2591 library - public domain!
-
 // connect SCL to analog 5
 // connect SDA to analog 4
 // connect Vin to 3.3-5V DC
 // connect GROUND to common ground
 
+#define BLUE_LED 4
+
 Adafruit_TSL2591 tsl = Adafruit_TSL2591(2591); // pass in a number for the sensor identifier (for your use later)
+bool sensorFound = false;
 
 /**************************************************************************/
 /*
@@ -49,6 +50,7 @@ void configureSensor(void)
   //tsl.setGain(TSL2591_GAIN_MED);      // 25x gain
   //tsl.setGain(TSL2591_GAIN_HIGH);   // 428x gain
   tsl.setGain(TSL2591_GAIN_MAX);
+  
   // Changing the integration time gives you a longer time over which to sense light
   // longer timelines are slower, but are good in very low light situtations!
   //tsl.setTiming(TSL2591_INTEGRATIONTIME_100MS);  // shortest integration time (bright light)
@@ -92,106 +94,46 @@ void configureSensor(void)
 void setup(void) 
 {
   Serial.begin(9600);
-  
-  //Serial.println("Starting Adafruit TSL2591 Test!");
-  
+    
   if (tsl.begin()) 
   {
-    //Serial.println("Found a TSL2591 sensor");
+    Serial.println("Found a TSL2591 sensor");
+    sensorFound = true;
+
+    displaySensorDetails();
+    configureSensor();
+    
+    pinMode(BLUE_LED, OUTPUT);
   } 
   else 
   {
-    //Serial.println("No sensor found ... check your wiring?");
-    while (1);
+    Serial.println("No sensor found ... check your wiring?");
   }
-    
-  /* Display some basic information on this sensor */
-  //displaySensorDetails();
-  
-  /* Configure the sensor */
-  configureSensor();
-    
-  // initialize digital pin LED_BUILTIN as an output.
-  pinMode(LED_BUILTIN, OUTPUT);
-  
-  digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
 }
 
-/**************************************************************************/
-/*
-    Shows how to perform a basic read on visible, full spectrum or
-    infrared light (returns raw 16-bit ADC values)
-*/
-/**************************************************************************/
-void simpleRead(void)
+int read_sensor(int gain)
 {
-  // Simple data read example. Just read the infrared, fullspecrtrum diode 
-  // or 'visible' (difference between the two) channels.
-  // This can take 100-600 milliseconds! Uncomment whichever of the following you want to read
-  uint16_t x = tsl.getLuminosity(TSL2591_VISIBLE);
-  //uint16_t x = tsl.getLuminosity(TSL2591_FULLSPECTRUM);
-  //uint16_t x = tsl.getLuminosity(TSL2591_INFRARED);
+  if (gain == TSL2591_GAIN_LOW ||
+      gain == TSL2591_GAIN_MED ||
+      gain == TSL2591_GAIN_HIGH ||
+      gain == TSL2591_GAIN_MAX) {
+    // if a valid value was given for gain, set it in the sensor before reading
+    tsl.setGain(gain);
+  } else {
+        // do nothing, just leave the gain as it is currently configured
+  }
 
-  Serial.print("[ "); Serial.print(millis()); Serial.print(" ms ] ");
-  Serial.print("Luminosity: ");
-  Serial.println(x, DEC);
+  return read_sensor();
 }
 
-/**************************************************************************/
-/*
-    Show how to read IR and Full Spectrum at once and convert to lux
-*/
-/**************************************************************************/
-void advancedRead(void)
-{
-  // More advanced data read example. Read 32 bits with top 16 bits IR, bottom 16 bits full spectrum
-  // That way you can do whatever math and comparisons you want!
-  uint32_t lum = tsl.getFullLuminosity();
-  uint16_t ir, full;
-  ir = lum >> 16;
-  full = lum & 0xFFFF;
-  Serial.print("[ "); Serial.print(millis()); Serial.print(" ms ] ");
-  Serial.print("IR: "); Serial.print(ir);  Serial.print("  ");
-  Serial.print("Full: "); Serial.print(full); Serial.print("  ");
-  Serial.print("Visible: "); Serial.print(full - ir); Serial.print("  ");
-  Serial.print("Lux: "); Serial.println(tsl.calculateLux(full, ir));
-}
-
-/**************************************************************************/
-/*
-    Performs a read using the Adafruit Unified Sensor API.
-*/
-/**************************************************************************/
-void unifiedSensorAPIRead(void)
-{
-  /* Get a new sensor event */ 
+uint16_t read_sensor() {
+  /* Get a new sensor event */
+  uint16_t lumi = tsl.getLuminosity(TSL2591_VISIBLE);
+  return lumi; 
   sensors_event_t event;
   tsl.getEvent(&event);
  
-  /* Display the results (light is measured in lux) */
-  Serial.print("[ "); Serial.print(event.timestamp); Serial.print(" ms ] ");
-  if ((event.light == 0) |
-      (event.light > 4294966000.0) | 
-      (event.light <-4294966000.0))
-  {
-    /* If event.light = 0 lux the sensor is probably saturated */
-    /* and no reliable data could be generated! */
-    /* if event.light is +/- 4294967040 there was a float over/underflow */
-    Serial.println("Invalid data (adjust gain or timing)");
-  }
-  else
-  {
-    Serial.print(event.light); Serial.println(" lux");
-  }
-}
-
-int myUnifiedSensorAPIRead(void)
-{
-  /* Get a new sensor event */ 
-  sensors_event_t event;
-  tsl.getEvent(&event);
- 
-  if ((event.light == 0) |
+  if (//(event.light == 0) |
       (event.light > 4294966000.0) | 
       (event.light <-4294966000.0))
   {
@@ -206,23 +148,194 @@ int myUnifiedSensorAPIRead(void)
   }
 }
 
+#define ERR_NO_SENSOR -1
+#define ERR_INVALID_PARAMETER -2
+#define ERR_OVERFLOW -3
 
-/**************************************************************************/
-/*
-    Arduino loop function, called once 'setup' is complete (your own code
-    should go here)
-*/
-/**************************************************************************/
+int32_t raw_read(uint8_t gain) {
+  if (!sensorFound)
+  {
+    return -1;
+  }
+
+  if ((gain != TSL2591_GAIN_LOW) &&
+      (gain != TSL2591_GAIN_MED) &&
+      (gain != TSL2591_GAIN_HIGH) &&
+      (gain != TSL2591_GAIN_MAX)) {
+    return -2;      
+  }
+
+  // Enable the device
+  tsl.enable();
+
+  tsl.write8(TSL2591_COMMAND_BIT | TSL2591_REGISTER_CONTROL, tsl.getTiming() | gain);
+
+  // Wait for ADC to complete
+  for (uint8_t d = 0; d <= tsl.getTiming(); d++)
+  {
+    delay(120);
+  }
+
+  uint16_t x = tsl.read16(TSL2591_COMMAND_BIT | TSL2591_REGISTER_CHAN0_LOW);
+
+  tsl.disable();
+
+  if (x == 0xFFFF) {
+    return ERR_OVERFLOW;
+  }
+
+  return x;
+}
+
+bool led_status = 0;
+
+#define TSL2591_GMAX_FACTOR  9876
+#define TSL2591_GHIGH_FACTOR  428
+#define TSL2591_GMED_FACTOR    25
+#define TSL2591_GLOW_FACTOR     1
+
+bool doMeasure = false;
+String sampleName;
+long numRep = 0;
+long repCount = 0;
+
+void stopMeasurement() {
+  doMeasure = false;
+  sampleName = "";
+  numRep = 0;
+  repCount = 0;
+  digitalWrite(BLUE_LED, LOW);
+}
+
 void loop(void) 
-{ 
-  // simpleRead(); 
-  // advancedRead();
-  //unifiedSensorAPIRead();
+{
   
-  //delay(2000);
+  if (Serial.available() > 0) {
+    String command = Serial.readString();
+    if (command.compareTo("stop") == 0) {
+      stopMeasurement();
+    } else if (command.startsWith("start")) {
+      int sampleStart = command.indexOf(' ');
+      if (sampleStart < 0) {
+        Serial.println("Invalid command");
+        return;
+      }
+      sampleStart += 1;
+      int repStart = command.indexOf(' ', sampleStart);
+      if (repStart < 0) {
+        Serial.println("Invalid command");
+        return;
+      }
+      repStart += 1;
+      sampleName = command.substring(sampleStart, repStart - 1);
+      String repStr = command.substring(repStart);
+      numRep = repStr.toInt();
+      repCount = 0;
+      doMeasure = true;
+      digitalWrite(BLUE_LED, HIGH);
+    }
+  }
 
-  Serial.print(myUnifiedSensorAPIRead());
+  if (numRep <= repCount) { // we're done
+    stopMeasurement();
+  }
+  
+  if (sensorFound && doMeasure && numRep > repCount) {
+    repCount++;
+    int32_t v = raw_read(TSL2591_GAIN_MAX);
+    if (v < 0) {
+      if (v == ERR_NO_SENSOR) {
+        Serial.println("Error reading sensor: No TSL2591 sensor present");
+        stopMeasurement();
+        return;        
+      } else if (v == ERR_INVALID_PARAMETER) {
+        Serial.println("Error reading sensor: Invalid gain parameter");
+        stopMeasurement();
+        return;
+      } else {
+        // Overflow. Fall through and try again with a different gain setting.
+      }
+    } else {
+      // Good, we got a useable value.
+      Serial.print(sampleName + ",");
+      Serial.print(repCount); Serial.print(",");
+      Serial.println(v);
+      return;
+    }
 
-  delay(250);
+    v = raw_read(TSL2591_GAIN_HIGH);
+    if (v < 0) {
+      if (v == ERR_NO_SENSOR) {
+        Serial.println("Error reading sensor: No TSL2591 sensor present");
+        stopMeasurement();
+        return;        
+      } else if (v == ERR_INVALID_PARAMETER) {
+        Serial.println("Error reading sensor: Invalid gain parameter");
+        stopMeasurement();
+        return;
+      } else {
+        // Overflow. Fall through and try again with a different gain setting.
+      }
+    } else {
+      // Good, we got a useable value.
+      // Adjust it for gain factor so we end up with a single scale for all values.
+      v *= (TSL2591_GMAX_FACTOR / TSL2591_GHIGH_FACTOR);
+      Serial.print(sampleName + ",");
+      Serial.print(repCount); Serial.print(",");
+      Serial.println(v);
+      return;
+    }
+
+    v = raw_read(TSL2591_GAIN_MED);
+    if (v < 0) {
+      if (v == ERR_NO_SENSOR) {
+        Serial.println("Error reading sensor: No TSL2591 sensor present");
+        stopMeasurement();
+        return;        
+      } else if (v == ERR_INVALID_PARAMETER) {
+        Serial.println("Error reading sensor: Invalid gain parameter");
+        stopMeasurement();
+        return;
+      } else {
+        // Overflow. Fall through and try again with a different gain setting.
+      }
+    } else {
+      // Good, we got a useable value.
+      // Adjust it for gain factor so we end up with a single scale for all values.
+      v *= (TSL2591_GHIGH_FACTOR / TSL2591_GMED_FACTOR);
+      Serial.print(sampleName + ",");
+      Serial.print(repCount); Serial.print(",");
+      Serial.println(v);
+      return;
+    }
+
+    v = raw_read(TSL2591_GAIN_LOW);
+    if (v < 0) {
+      if (v == ERR_NO_SENSOR) {
+        Serial.println("Error reading sensor: No TSL2591 sensor present");
+        stopMeasurement();
+        return;        
+      } else if (v == ERR_INVALID_PARAMETER) {
+        Serial.println("Error reading sensor: Invalid gain parameter");
+        stopMeasurement();
+        return;
+      } else {
+        // Overflow. Fall through and try again with a different gain setting.
+      }
+    } else {
+      // Good, we got a useable value.
+      // Adjust it for gain factor so we end up with a single scale for all values.
+      v *= (TSL2591_GMED_FACTOR / TSL2591_GLOW_FACTOR);
+      Serial.print(sampleName + ",");
+      Serial.print(repCount); Serial.print(",");
+      Serial.println(v);
+      return;
+    }  
+  } else {
+    // If no sensor was found, just blink the LED to signal this
+    digitalWrite(LED_BUILTIN, led_status);
+    led_status  = (led_status + 1) % 2;
+    delay(500);
+  }  
 }
 
